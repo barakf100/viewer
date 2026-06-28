@@ -614,6 +614,86 @@ function collapseToDepth(maxDepth) {
   });
 }
 
+function searchTree(query) {
+  const container = document.getElementById('treeContainer');
+  const allNodes = container.querySelectorAll('.tree-node');
+
+  container.querySelectorAll('.search-highlight').forEach(el => {
+    el.replaceWith(document.createTextNode(el.textContent));
+  });
+  allNodes.forEach(n => n.classList.remove('search-hidden'));
+
+  if (!query) {
+    document.getElementById('searchCount').textContent = '';
+    return;
+  }
+
+  const lowerQuery = query.toLowerCase();
+  let matchCount = 0;
+  const matchedNodes = new Set();
+
+  allNodes.forEach(node => {
+    const searchables = node.querySelectorAll(':scope > .tree-node-content [data-searchable]');
+    let nodeMatches = false;
+
+    searchables.forEach(el => {
+      const text = el.dataset.searchable;
+      if (text.toLowerCase().includes(lowerQuery)) {
+        nodeMatches = true;
+        highlightText(el, query);
+      }
+    });
+
+    if (nodeMatches) {
+      matchCount++;
+      matchedNodes.add(node);
+      let parent = node.parentElement;
+      while (parent) {
+        if (parent.classList && parent.classList.contains('tree-node')) {
+          matchedNodes.add(parent);
+        }
+        parent = parent.parentElement;
+      }
+    }
+  });
+
+  allNodes.forEach(node => {
+    if (!matchedNodes.has(node)) {
+      node.classList.add('search-hidden');
+    }
+  });
+
+  matchedNodes.forEach(node => {
+    const children = node.querySelector(':scope > .tree-children');
+    const toggle = node.querySelector(':scope > .tree-node-content > .tree-toggle');
+    if (children && toggle) {
+      children.classList.remove('collapsed');
+      toggle.textContent = '▾';
+    }
+  });
+
+  document.getElementById('searchCount').textContent = `${matchCount} match${matchCount !== 1 ? 'es' : ''}`;
+}
+
+function highlightText(el, query) {
+  const text = el.textContent;
+  const lowerText = text.toLowerCase();
+  const lowerQuery = query.toLowerCase();
+  const idx = lowerText.indexOf(lowerQuery);
+  if (idx === -1) return;
+
+  const before = document.createTextNode(text.substring(0, idx));
+  const highlight = document.createElement('span');
+  highlight.className = 'search-highlight';
+  highlight.textContent = text.substring(idx, idx + query.length);
+  const after = document.createTextNode(text.substring(idx + query.length));
+
+  el.textContent = '';
+  el.appendChild(before);
+  el.appendChild(highlight);
+  el.appendChild(after);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   ThemeManager.init();
   document.getElementById('themeToggle').addEventListener('click', () => ThemeManager.toggle());
@@ -714,6 +794,16 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('rawCopyBtn').addEventListener('click', () => {
     const text = document.getElementById('rawContent').textContent;
     navigator.clipboard.writeText(text);
+  });
+
+  let searchTimeout;
+  document.getElementById('searchInput').addEventListener('input', (e) => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => searchTree(e.target.value.trim()), 150);
+  });
+  document.getElementById('searchClear').addEventListener('click', () => {
+    document.getElementById('searchInput').value = '';
+    searchTree('');
   });
 });
   </script>
