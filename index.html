@@ -227,6 +227,15 @@ body {
 .tree-children.collapsed { display: none; }
 .search-highlight { background: var(--highlight-bg); border-radius: 2px; padding: 0 1px; }
 .tree-node.search-hidden { display: none; }
+
+@media (max-width: 600px) {
+  .header { padding: 8px 12px; }
+  .search-box input { width: 120px; }
+  .toolbar { flex-wrap: wrap; }
+  .input-view { padding: 20px; }
+  .input-view textarea { height: 300px; }
+  .modal { width: 95%; padding: 16px; }
+}
   </style>
 </head>
 <body>
@@ -694,6 +703,12 @@ function highlightText(el, query) {
   el.appendChild(after);
 }
 
+function showCopyFeedback(button) {
+  const prev = button.textContent;
+  button.textContent = '✓';
+  setTimeout(() => { button.textContent = prev; }, 1500);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   ThemeManager.init();
   document.getElementById('themeToggle').addEventListener('click', () => ThemeManager.toggle());
@@ -749,6 +764,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('pathCopy').addEventListener('click', () => {
     const pathText = document.getElementById('pathText').textContent.split(' → ')[0];
     navigator.clipboard.writeText(pathText);
+    showCopyFeedback(document.getElementById('pathCopy'));
   });
 
   document.getElementById('pasteNewBtn').addEventListener('click', () => {
@@ -794,6 +810,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('rawCopyBtn').addEventListener('click', () => {
     const text = document.getElementById('rawContent').textContent;
     navigator.clipboard.writeText(text);
+    showCopyFeedback(document.getElementById('rawCopyBtn'));
   });
 
   let searchTimeout;
@@ -804,6 +821,31 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('searchClear').addEventListener('click', () => {
     document.getElementById('searchInput').value = '';
     searchTree('');
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+      if (document.getElementById('mainView').style.display !== 'none') {
+        e.preventDefault();
+        document.getElementById('searchInput').focus();
+      }
+    }
+    if (e.key === 'Escape') {
+      const modal = document.getElementById('pasteModal');
+      if (modal.style.display !== 'none') {
+        modal.style.display = 'none';
+      } else if (document.activeElement === document.getElementById('searchInput')) {
+        document.getElementById('searchInput').value = '';
+        searchTree('');
+        document.getElementById('searchInput').blur();
+      }
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+      const inputView = document.getElementById('inputView');
+      if (inputView.style.display !== 'none' && document.activeElement !== document.getElementById('jsonInput')) {
+        document.getElementById('jsonInput').focus();
+      }
+    }
   });
 });
   </script>
