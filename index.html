@@ -268,35 +268,13 @@ body {
   <script>
 const ThemeManager = {
   init() {
-    const saved = localStorage.getItem('json-viewer-theme');
-    if (saved) {
-      document.documentElement.setAttribute('data-theme', saved);
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      document.documentElement.setAttribute('data-theme', 'dark');
-    }
+    const saved = localStorage.getItem('json-viewer-theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', saved);
     this.updateIcon();
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-      if (!localStorage.getItem('json-viewer-theme')) {
-        document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
-        this.updateIcon();
-      }
-    });
   },
   toggle() {
     const current = document.documentElement.getAttribute('data-theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const saved = localStorage.getItem('json-viewer-theme');
-    let next;
-    if (!saved) {
-      next = prefersDark ? 'light' : 'dark';
-    } else if (current === 'light') {
-      next = 'dark';
-    } else {
-      localStorage.removeItem('json-viewer-theme');
-      document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
-      this.updateIcon();
-      return;
-    }
+    const next = current === 'dark' ? 'light' : 'dark';
     localStorage.setItem('json-viewer-theme', next);
     document.documentElement.setAttribute('data-theme', next);
     this.updateIcon();
@@ -304,17 +282,8 @@ const ThemeManager = {
   updateIcon() {
     const btn = document.getElementById('themeToggle');
     const theme = document.documentElement.getAttribute('data-theme');
-    const saved = localStorage.getItem('json-viewer-theme');
-    if (!saved) {
-      btn.textContent = '💻';
-      btn.title = 'Theme: System';
-    } else if (theme === 'dark') {
-      btn.textContent = '🌙';
-      btn.title = 'Theme: Dark';
-    } else {
-      btn.textContent = '☀️';
-      btn.title = 'Theme: Light';
-    }
+    btn.textContent = theme === 'dark' ? '🌙' : '☀️';
+    btn.title = theme === 'dark' ? 'Theme: Dark' : 'Theme: Light';
   }
 };
 
