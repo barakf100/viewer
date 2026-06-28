@@ -203,6 +203,17 @@ body {
 }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
+.text-toolbar {
+  display: flex; align-items: center; padding: 6px 16px; gap: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.text-content {
+  width: 100%; flex: 1; padding: 16px; border: none; outline: none; resize: none;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 13px;
+  line-height: 1.5; background: var(--bg-primary); color: var(--text-primary);
+  tab-size: 2;
+}
+
 .tree-node { position: relative; }
 .tree-node-content {
   display: flex; align-items: baseline; gap: 4px;
@@ -261,6 +272,7 @@ body {
     <div class="tab-bar">
       <button class="tab active" data-tab="tree">Tree</button>
       <button class="tab" data-tab="raw">Raw</button>
+      <button class="tab" data-tab="text">Text</button>
       <button id="pasteNewBtn" class="icon-btn" title="Paste new JSON">📋 Paste New</button>
     </div>
 
@@ -285,6 +297,14 @@ body {
         <button id="rawCopyBtn" class="tool-btn">Copy</button>
       </div>
       <pre id="rawContent" class="raw-content"></pre>
+    </div>
+
+    <div id="textPanel" class="panel" style="display:none;">
+      <div class="text-toolbar">
+        <button id="textApplyBtn" class="primary-btn" style="padding:6px 16px;font-size:12px;">Apply Changes</button>
+        <div id="textError" class="error-banner" style="display:none;font-size:12px;padding:6px 12px;max-width:none;"></div>
+      </div>
+      <textarea id="textContent" class="text-content"></textarea>
     </div>
 
     <div class="path-bar" id="pathBar" style="display:none;">
@@ -740,15 +760,54 @@ document.addEventListener('DOMContentLoaded', () => {
     updateRawView(currentJSON, true);
   });
 
+  let activeTab = 'tree';
+
+  function applyTextChanges() {
+    const text = document.getElementById('textContent').value;
+    const textError = document.getElementById('textError');
+    const result = parseJSON(text);
+    if (!result.ok) {
+      textError.style.display = 'block';
+      let msg = result.error;
+      if (result.line) msg += ` (line ${result.line}, column ${result.col})`;
+      textError.textContent = msg;
+      return false;
+    }
+    textError.style.display = 'none';
+    currentJSON = result.data;
+    return true;
+  }
+
+  function switchTab(target) {
+    if (activeTab === 'text' && target !== 'text') {
+      applyTextChanges();
+    }
+    if (target === 'tree') renderTree(currentJSON);
+    if (target === 'raw') updateRawView(currentJSON, true);
+    if (target === 'text') {
+      document.getElementById('textContent').value = JSON.stringify(currentJSON, null, 2);
+      document.getElementById('textError').style.display = 'none';
+    }
+    document.getElementById('treePanel').style.display = target === 'tree' ? 'block' : 'none';
+    document.getElementById('rawPanel').style.display = target === 'raw' ? 'flex' : 'none';
+    document.getElementById('textPanel').style.display = target === 'text' ? 'flex' : 'none';
+    document.getElementById('toolbar').style.display = target === 'tree' ? 'flex' : 'none';
+    activeTab = target;
+  }
+
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
-      const target = tab.dataset.tab;
-      document.getElementById('treePanel').style.display = target === 'tree' ? 'block' : 'none';
-      document.getElementById('rawPanel').style.display = target === 'raw' ? 'flex' : 'none';
-      document.getElementById('toolbar').style.display = target === 'tree' ? 'flex' : 'none';
+      switchTab(tab.dataset.tab);
     });
+  });
+
+  document.getElementById('textApplyBtn').addEventListener('click', () => {
+    if (applyTextChanges()) {
+      renderTree(currentJSON);
+      updateRawView(currentJSON, true);
+    }
   });
 
   document.getElementById('expandAllBtn').addEventListener('click', expandAll);
