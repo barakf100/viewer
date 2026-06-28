@@ -579,6 +579,41 @@ function syntaxHighlightRaw(container, text) {
   }
 }
 
+function expandAll() {
+  document.querySelectorAll('.tree-children').forEach(el => {
+    el.classList.remove('collapsed');
+  });
+  document.querySelectorAll('.tree-toggle').forEach(el => {
+    if (el.textContent === '▸') el.textContent = '▾';
+  });
+}
+
+function collapseAll() {
+  document.querySelectorAll('.tree-children').forEach(el => {
+    el.classList.add('collapsed');
+  });
+  document.querySelectorAll('.tree-toggle').forEach(el => {
+    if (el.textContent === '▾') el.textContent = '▸';
+  });
+}
+
+function collapseToDepth(maxDepth) {
+  document.querySelectorAll('.tree-node').forEach(node => {
+    const depth = parseInt(node.dataset.depth);
+    const children = node.querySelector(':scope > .tree-children');
+    const toggle = node.querySelector(':scope > .tree-node-content > .tree-toggle');
+    if (children && toggle) {
+      if (depth < maxDepth) {
+        children.classList.remove('collapsed');
+        toggle.textContent = '▾';
+      } else {
+        children.classList.add('collapsed');
+        toggle.textContent = '▸';
+      }
+    }
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   ThemeManager.init();
   document.getElementById('themeToggle').addEventListener('click', () => ThemeManager.toggle());
@@ -619,6 +654,16 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('rawPanel').style.display = target === 'raw' ? 'flex' : 'none';
       document.getElementById('toolbar').style.display = target === 'tree' ? 'flex' : 'none';
     });
+  });
+
+  document.getElementById('expandAllBtn').addEventListener('click', expandAll);
+  document.getElementById('collapseAllBtn').addEventListener('click', collapseAll);
+
+  const depthSlider = document.getElementById('depthSlider');
+  const depthValue = document.getElementById('depthValue');
+  depthSlider.addEventListener('input', () => {
+    depthValue.textContent = depthSlider.value;
+    collapseToDepth(parseInt(depthSlider.value));
   });
 
   document.getElementById('pathCopy').addEventListener('click', () => {
