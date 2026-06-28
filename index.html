@@ -162,7 +162,7 @@ body {
   font-size: 13px; line-height: 1.6;
 }
 
-.raw-toolbar { display: flex; padding: 6px 16px; gap: 6px; border-bottom: 1px solid var(--border); }
+.raw-controls { display: inline-flex; gap: 4px; margin-left: 8px; }
 .raw-content {
   padding: 16px; font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 13px; line-height: 1.5; overflow: auto; flex: 1;
@@ -261,7 +261,6 @@ body {
   <div id="inputView" class="input-view">
     <textarea id="jsonInput" placeholder="Paste JSON here..."></textarea>
     <div id="errorBanner" class="error-banner" style="display:none;"></div>
-    <button id="formatBtn" class="primary-btn" disabled>Format &amp; View</button>
   </div>
 
   <div id="mainView" class="main-view" style="display:none;">
@@ -269,6 +268,10 @@ body {
       <button class="tab active" data-tab="tree">Tree</button>
       <button class="tab" data-tab="raw">Raw</button>
       <button class="tab" data-tab="text">Text</button>
+      <span id="rawControls" class="raw-controls" style="display:none;">
+        <button id="rawFormatBtn" class="tool-btn">Format</button>
+        <button id="rawMinifyBtn" class="tool-btn">Minify</button>
+      </span>
       <button id="pasteNewBtn" class="icon-btn" title="Paste new JSON">📋 Paste New</button>
     </div>
 
@@ -287,11 +290,6 @@ body {
     </div>
 
     <div id="rawPanel" class="panel" style="display:none;">
-      <div class="raw-toolbar">
-        <button id="rawFormatBtn" class="tool-btn">Format</button>
-        <button id="rawMinifyBtn" class="tool-btn">Minify</button>
-        <button id="rawCopyBtn" class="tool-btn">Copy</button>
-      </div>
       <pre id="rawContent" class="raw-content"></pre>
     </div>
 
@@ -727,15 +725,11 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('themeToggle').addEventListener('click', () => ThemeManager.toggle());
 
   const jsonInput = document.getElementById('jsonInput');
-  const formatBtn = document.getElementById('formatBtn');
-  jsonInput.addEventListener('input', () => {
-    formatBtn.disabled = !jsonInput.value.trim();
-  });
 
   let currentJSON = null;
 
-  formatBtn.addEventListener('click', () => {
-    const result = parseJSON(jsonInput.value);
+  function tryParseAndView(text) {
+    const result = parseJSON(text);
     const errorBanner = document.getElementById('errorBanner');
     if (!result.ok) {
       errorBanner.style.display = 'block';
@@ -751,6 +745,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('searchBox').style.display = 'flex';
     renderTree(currentJSON);
     updateRawView(currentJSON, true);
+  }
+
+  jsonInput.addEventListener('paste', () => {
+    setTimeout(() => {
+      if (jsonInput.value.trim()) tryParseAndView(jsonInput.value);
+    }, 0);
   });
 
   let activeTab = 'tree';
@@ -785,6 +785,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('rawPanel').style.display = target === 'raw' ? 'flex' : 'none';
     document.getElementById('textPanel').style.display = target === 'text' ? 'flex' : 'none';
     document.getElementById('toolbar').style.display = target === 'tree' ? 'flex' : 'none';
+    document.getElementById('rawControls').style.display = target === 'raw' ? 'inline-flex' : 'none';
     activeTab = target;
   }
 
@@ -852,11 +853,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('rawMinifyBtn').addEventListener('click', () => {
     updateRawView(currentJSON, false);
-  });
-  document.getElementById('rawCopyBtn').addEventListener('click', () => {
-    const text = document.getElementById('rawContent').textContent;
-    navigator.clipboard.writeText(text);
-    showCopyFeedback(document.getElementById('rawCopyBtn'));
   });
 
   let searchTimeout;
