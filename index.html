@@ -261,6 +261,7 @@ body {
   <div id="inputView" class="input-view">
     <textarea id="jsonInput" placeholder="Paste JSON here..."></textarea>
     <div id="errorBanner" class="error-banner" style="display:none;"></div>
+    <button id="formatBtn" class="primary-btn" disabled>Format &amp; View</button>
   </div>
 
   <div id="mainView" class="main-view" style="display:none;">
@@ -725,6 +726,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('themeToggle').addEventListener('click', () => ThemeManager.toggle());
 
   const jsonInput = document.getElementById('jsonInput');
+  const formatBtn = document.getElementById('formatBtn');
 
   let currentJSON = null;
 
@@ -747,10 +749,18 @@ document.addEventListener('DOMContentLoaded', () => {
     updateRawView(currentJSON, true);
   }
 
+  jsonInput.addEventListener('input', () => {
+    formatBtn.disabled = !jsonInput.value.trim();
+  });
+
   jsonInput.addEventListener('paste', () => {
     setTimeout(() => {
       if (jsonInput.value.trim()) tryParseAndView(jsonInput.value);
     }, 0);
+  });
+
+  formatBtn.addEventListener('click', () => {
+    if (jsonInput.value.trim()) tryParseAndView(jsonInput.value);
   });
 
   let activeTab = 'tree';
