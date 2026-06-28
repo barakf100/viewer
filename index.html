@@ -353,6 +353,232 @@ const ThemeManager = {
   }
 };
 
+function parseJSON(text) {
+  try {
+    const data = JSON.parse(text);
+    return { ok: true, data };
+  } catch (e) {
+    const match = e.message.match(/position\s+(\d+)/i);
+    let line = null, col = null;
+    if (match) {
+      const pos = parseInt(match[1]);
+      const before = text.substring(0, pos);
+      line = (before.match(/\n/g) || []).length + 1;
+      col = pos - before.lastIndexOf('\n');
+    }
+    return { ok: false, error: e.message, line, col };
+  }
+}
+
+let totalNodeCount = 0;
+let selectedNodeEl = null;
+
+function buildPath(parentPath, key, isArrayItem) {
+  if (parentPath === '$' && key === '') return '$';
+  if (isArrayItem) return `${parentPath}[${key}]`;
+  if (/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key)) return `${parentPath}.${key}`;
+  return `${parentPath}["${key}"]`;
+}
+
+function getType(value) {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  return typeof value;
+}
+
+function truncateString(str, max) {
+  if (str.length <= max) return str;
+  return str.substring(0, max) + '…';
+}
+
+function renderTree(data) {
+  totalNodeCount = 0;
+  selectedNodeEl = null;
+  const container = document.getElementById('treeContainer');
+  container.innerHTML = '';
+  const rootNode = createTreeNode('', data, '$', false, 0);
+  container.appendChild(rootNode);
+  document.getElementById('nodeCount').textContent = `${totalNodeCount} nodes`;
+}
+
+function createTreeNode(key, value, path, isArrayItem, depth) {
+  totalNodeCount++;
+  const type = getType(value);
+  const node = document.createElement('div');
+  node.className = 'tree-node';
+  node.dataset.path = path;
+  node.dataset.depth = depth;
+
+  const content = document.createElement('div');
+  content.className = 'tree-node-content';
+
+  const defaultDepth = parseInt(document.getElementById('depthSlider').value);
+  const isExpandable = type === 'object' || type === 'array';
+
+  if (isExpandable) {
+    const toggle = document.createElement('span');
+    toggle.className = 'tree-toggle';
+    toggle.textContent = depth < defaultDepth ? '▾' : '▸';
+    content.appendChild(toggle);
+
+    if (key !== '' || path !== '$') {
+      const keySpan = document.createElement('span');
+      keySpan.className = isArrayItem ? 'tree-number' : 'tree-key';
+      keySpan.dataset.searchable = key;
+      keySpan.textContent = isArrayItem ? key : `"${key}"`;
+      content.appendChild(keySpan);
+
+      const colon = document.createElement('span');
+      colon.textContent = ': ';
+      colon.style.color = 'var(--text-muted)';
+      content.appendChild(colon);
+    }
+
+    const bracket = document.createElement('span');
+    bracket.className = 'tree-bracket';
+    bracket.textContent = type === 'array' ? '[' : '{';
+    content.appendChild(bracket);
+
+    const count = document.createElement('span');
+    count.className = 'tree-count';
+    const itemCount = type === 'array' ? value.length : Object.keys(value).length;
+    count.textContent = `${itemCount}`;
+    content.appendChild(count);
+
+    const closeBracket = document.createElement('span');
+    closeBracket.className = 'tree-bracket';
+    closeBracket.textContent = type === 'array' ? ']' : '}';
+    content.appendChild(closeBracket);
+
+    node.appendChild(content);
+
+    const children = document.createElement('div');
+    children.className = 'tree-children';
+    if (depth >= defaultDepth) children.classList.add('collapsed');
+
+    const entries = type === 'array'
+      ? value.map((v, i) => [String(i), v, true])
+      : Object.entries(value).map(([k, v]) => [k, v, false]);
+
+    entries.forEach(([k, v, isArr]) => {
+      const childPath = buildPath(path, k, isArr);
+      children.appendChild(createTreeNode(k, v, childPath, isArr, depth + 1));
+    });
+
+    node.appendChild(children);
+
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const collapsed = children.classList.toggle('collapsed');
+      toggle.textContent = collapsed ? '▸' : '▾';
+    });
+
+    content.addEventListener('click', () => selectNode(content, path, type, value));
+  } else {
+    const spacer = document.createElement('span');
+    spacer.className = 'tree-toggle';
+    spacer.textContent = ' ';
+    content.appendChild(spacer);
+
+    if (key !== '') {
+      const keySpan = document.createElement('span');
+      keySpan.className = isArrayItem ? 'tree-number' : 'tree-key';
+      keySpan.dataset.searchable = key;
+      keySpan.textContent = isArrayItem ? key : `"${key}"`;
+      content.appendChild(keySpan);
+
+      const colon = document.createElement('span');
+      colon.textContent = ': ';
+      colon.style.color = 'var(--text-muted)';
+      content.appendChild(colon);
+    }
+
+    const valSpan = document.createElement('span');
+    valSpan.dataset.searchable = String(value);
+    if (type === 'string') {
+      valSpan.className = 'tree-string';
+      valSpan.textContent = `"${truncateString(value, 200)}"`;
+    } else if (type === 'number') {
+      valSpan.className = 'tree-number';
+      valSpan.textContent = String(value);
+    } else if (type === 'boolean') {
+      valSpan.className = 'tree-boolean';
+      valSpan.textContent = String(value);
+    } else {
+      valSpan.className = 'tree-null';
+      valSpan.textContent = 'null';
+    }
+    content.appendChild(valSpan);
+
+    node.appendChild(content);
+    content.addEventListener('click', () => selectNode(content, path, type, value));
+  }
+
+  return node;
+}
+
+function selectNode(contentEl, path, type, value) {
+  if (selectedNodeEl) selectedNodeEl.classList.remove('selected');
+  contentEl.classList.add('selected');
+  selectedNodeEl = contentEl;
+
+  const pathBar = document.getElementById('pathBar');
+  pathBar.style.display = 'flex';
+  document.getElementById('pathType').textContent = type;
+
+  let preview = '';
+  if (type === 'string') preview = ` → "${truncateString(value, 60)}"`;
+  else if (type === 'object') preview = ` → {${Object.keys(value).length} keys}`;
+  else if (type === 'array') preview = ` → [${value.length} items]`;
+  else if (value !== null) preview = ` → ${value}`;
+
+  document.getElementById('pathText').textContent = path + preview;
+}
+
+function updateRawView(data, formatted) {
+  const raw = document.getElementById('rawContent');
+  const text = formatted ? JSON.stringify(data, null, 2) : JSON.stringify(data);
+  raw.textContent = '';
+  syntaxHighlightRaw(raw, text);
+}
+
+function syntaxHighlightRaw(container, text) {
+  let lastIndex = 0;
+  const fullRegex = /("(?:\\.|[^"\\])*")\s*:|("(?:\\.|[^"\\])*")|\b(true|false)\b|\b(null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
+  let match;
+  while ((match = fullRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      container.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
+    }
+    const span = document.createElement('span');
+    if (match[1]) {
+      span.className = 'tree-key';
+      span.textContent = match[1];
+      container.appendChild(span);
+      container.appendChild(document.createTextNode(':'));
+      lastIndex = fullRegex.lastIndex;
+      continue;
+    } else if (match[2]) {
+      span.className = 'tree-string';
+      span.textContent = match[2];
+    } else if (match[3]) {
+      span.className = 'tree-boolean';
+      span.textContent = match[3];
+    } else if (match[4]) {
+      span.className = 'tree-null';
+      span.textContent = match[4];
+    } else if (match[5]) {
+      span.className = 'tree-number';
+      span.textContent = match[5];
+    }
+    container.appendChild(span);
+    lastIndex = fullRegex.lastIndex;
+  }
+  if (lastIndex < text.length) {
+    container.appendChild(document.createTextNode(text.substring(lastIndex)));
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   ThemeManager.init();
   document.getElementById('themeToggle').addEventListener('click', () => ThemeManager.toggle());
@@ -361,6 +587,88 @@ document.addEventListener('DOMContentLoaded', () => {
   const formatBtn = document.getElementById('formatBtn');
   jsonInput.addEventListener('input', () => {
     formatBtn.disabled = !jsonInput.value.trim();
+  });
+
+  let currentJSON = null;
+
+  formatBtn.addEventListener('click', () => {
+    const result = parseJSON(jsonInput.value);
+    const errorBanner = document.getElementById('errorBanner');
+    if (!result.ok) {
+      errorBanner.style.display = 'block';
+      let msg = result.error;
+      if (result.line) msg += ` (line ${result.line}, column ${result.col})`;
+      errorBanner.textContent = msg;
+      return;
+    }
+    errorBanner.style.display = 'none';
+    currentJSON = result.data;
+    document.getElementById('inputView').style.display = 'none';
+    document.getElementById('mainView').style.display = 'flex';
+    document.getElementById('searchBox').style.display = 'flex';
+    renderTree(currentJSON);
+    updateRawView(currentJSON, true);
+  });
+
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const target = tab.dataset.tab;
+      document.getElementById('treePanel').style.display = target === 'tree' ? 'block' : 'none';
+      document.getElementById('rawPanel').style.display = target === 'raw' ? 'flex' : 'none';
+      document.getElementById('toolbar').style.display = target === 'tree' ? 'flex' : 'none';
+    });
+  });
+
+  document.getElementById('pathCopy').addEventListener('click', () => {
+    const pathText = document.getElementById('pathText').textContent.split(' → ')[0];
+    navigator.clipboard.writeText(pathText);
+  });
+
+  document.getElementById('pasteNewBtn').addEventListener('click', () => {
+    document.getElementById('pasteModal').style.display = 'flex';
+    document.getElementById('modalInput').value = '';
+    document.getElementById('modalError').style.display = 'none';
+    document.getElementById('modalInput').focus();
+  });
+  document.getElementById('modalClose').addEventListener('click', () => {
+    document.getElementById('pasteModal').style.display = 'none';
+  });
+  document.getElementById('modalCancel').addEventListener('click', () => {
+    document.getElementById('pasteModal').style.display = 'none';
+  });
+  document.getElementById('modalFormat').addEventListener('click', () => {
+    const result = parseJSON(document.getElementById('modalInput').value);
+    const modalError = document.getElementById('modalError');
+    if (!result.ok) {
+      modalError.style.display = 'block';
+      let msg = result.error;
+      if (result.line) msg += ` (line ${result.line}, column ${result.col})`;
+      modalError.textContent = msg;
+      return;
+    }
+    modalError.style.display = 'none';
+    currentJSON = result.data;
+    document.getElementById('pasteModal').style.display = 'none';
+    renderTree(currentJSON);
+    updateRawView(currentJSON, true);
+  });
+  document.getElementById('pasteModal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) {
+      document.getElementById('pasteModal').style.display = 'none';
+    }
+  });
+
+  document.getElementById('rawFormatBtn').addEventListener('click', () => {
+    updateRawView(currentJSON, true);
+  });
+  document.getElementById('rawMinifyBtn').addEventListener('click', () => {
+    updateRawView(currentJSON, false);
+  });
+  document.getElementById('rawCopyBtn').addEventListener('click', () => {
+    const text = document.getElementById('rawContent').textContent;
+    navigator.clipboard.writeText(text);
   });
 });
   </script>
