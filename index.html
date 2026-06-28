@@ -423,13 +423,11 @@ function createTreeNode(key, value, path, isArrayItem, depth) {
 
     node.appendChild(children);
 
-    toggle.addEventListener('click', (e) => {
-      e.stopPropagation();
+    content.addEventListener('click', () => {
       const collapsed = children.classList.toggle('collapsed');
       toggle.textContent = collapsed ? '▸' : '▾';
+      selectNode(content, path, type, value);
     });
-
-    content.addEventListener('click', () => selectNode(content, path, type, value));
   } else {
     const spacer = document.createElement('span');
     spacer.className = 'tree-toggle';
